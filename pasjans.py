@@ -18,7 +18,7 @@ def pad_visible(s: str, width: int) -> str:
 
 
 
-# === GLOBALNE KONSTANTY ===
+#GLOBALNE KONSTANTY
 SUITS = ['♥', '♦', '♠', '♣']  # Kier, Karo, Pik, Trefl
 VALUES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
 
@@ -79,20 +79,20 @@ class Card:
     def get_numeric_value(self):
         return VALUES.index(self.value) + 1
 
-# === Talia i Tasowanie ===
+# tasuje talie i tworzy 52 karty
 def generate_deck():
     return [Card(value, suit) for suit in SUITS for value in VALUES]
 
-# === Wyświetlanie ===
+# czyści ekran
 def clear():
     os.system('cls' if os.name == 'nt' else 'clear')
 
-# === Ranking ===
+# zapisuje wynik do pliku
 def zapisz_do_rankingu(wynik):
     with open(RANKING_FILE, "a") as f:
         f.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {wynik}\n")
 
-# === Główna logika gry ===
+# Główna logika gry
 class Solitaire:
     def __init__(self, difficulty=EASY_MODE):
         self.deck = generate_deck()
@@ -106,6 +106,7 @@ class Solitaire:
         self.move_counter = 0
         self.setup_game()
 
+    # rozdaje karty na początek gry
     def setup_game(self):
         for i in range(7):
             for j in range(i + 1):
@@ -116,6 +117,8 @@ class Solitaire:
         self.deck.clear()
         self.save_state()
 
+
+    # dobiera karty ze stosu
     def draw_stock(self):
         if not self.stock and self.waste:
             self.stock = deque(reversed(self.waste))
@@ -130,15 +133,14 @@ class Solitaire:
         self.waste.extend(drawn)
         self.save_state()
 
+    # zaznacza kartę, którą da się ruszyć
     def highlight_hint(self):
-        # Wyczyść stare podświetlenia
         for col in self.columns:
             for card in col:
                 card.highlighted = False
         if self.waste:
             self.waste[-1].highlighted = False
 
-        # === 1. Kolumny → Fundacja
         for from_col in self.columns:
             if not from_col:
                 continue
@@ -151,7 +153,6 @@ class Solitaire:
                 card.highlighted = True
                 return
 
-        # === 2. Waste → Fundacja
         if self.waste:
             card = self.waste[-1]
             fstack = self.foundation[card.suit]
@@ -160,7 +161,6 @@ class Solitaire:
                 card.highlighted = True
                 return
 
-        # === 3. Kolumna → Kolumna
         for from_idx, from_col in enumerate(self.columns):
             for i in range(len(from_col)):
                 card = from_col[i]
@@ -180,7 +180,6 @@ class Solitaire:
                                 card.highlighted = True
                                 return
 
-        # === 4. Waste → Kolumna
         if self.waste:
             card = self.waste[-1]
             for to_col in self.columns:
@@ -196,7 +195,7 @@ class Solitaire:
                             return
 
         
-
+    # zapisuje stan gry do historii (żeby działało cofanie)
     def save_state(self):
         import copy
         snapshot = {
@@ -207,9 +206,11 @@ class Solitaire:
             "move_counter": self.move_counter
         }
         self.history.append(snapshot)
-        if len(self.history) > 10:
+        if len(self.history) > 3:
             self.history.pop(0)
 
+
+    # przywraca poprzedni stan gry (undo)
     def undo(self):
         if len(self.history) > 1:
             self.history.pop()
@@ -220,6 +221,7 @@ class Solitaire:
             self.stock = snapshot["stock"]
             self.move_counter = snapshot["move_counter"]
 
+    # przenosi kartę z kolumny do stosu końcowego (jeśli pasuje)
     def move_to_foundation(self, col_idx):
         col = self.columns[col_idx]
         if not col:
@@ -234,6 +236,8 @@ class Solitaire:
                 col[-1].face_up = True
             self.save_state()
 
+
+    # przenosi kartę z waste do stosu końcowego
     def move_waste_to_foundation(self):
         if not self.waste:
             return
@@ -245,13 +249,13 @@ class Solitaire:
             self.move_counter += 1
             self.save_state()
 
+    # przenosi całą część kolumny do innej kolumny
     def move_column_to_column(self, from_idx, to_idx):
         from_col = self.columns[from_idx]
         to_col = self.columns[to_idx]
         if not from_col:
             return
 
-        # Jeśli kolumna docelowa jest pusta, możemy przenieść tylko segment zaczynający się od Króla
         if not to_col:
             for i in range(len(from_col)):
                 if from_col[i].face_up and from_col[i].value == 'K':
@@ -283,6 +287,8 @@ class Solitaire:
                     return
 
 
+
+    # przenosi kartę z waste do kolumny
     def move_waste_to_column(self, to_idx):
         if not self.waste:
             return
@@ -302,23 +308,21 @@ class Solitaire:
                     self.move_counter += 1
                     self.save_state()
 
+    # sprawdza czy wygrana (wszystkie stosy pełne)
     def check_win(self):
         return all(len(stack) == 13 for stack in self.foundation.values())
 
+    # sprawdza czy przegrana (brak ruchów)
     def check_loss(self):
-        # 1) Jeśli da się jeszcze dobierać (stock niepusty) albo przerzucić waste z powrotem – wciąż gramy
         if self.stock or self.waste:
             return False
 
-        # 2) Czy waste->fundacja lub waste->kolumna?
         if self.waste:
             w = self.waste[-1]
-            # fundacja
             fstack = self.foundation[w.suit]
             expected = VALUES[len(fstack)] if fstack else 'A'
             if w.value == expected:
                 return False
-            # kolumny
             for col in self.columns:
                 if not col and w.value == 'K':
                     return False
@@ -327,17 +331,14 @@ class Solitaire:
                 ((col[-1].is_red() and w.is_black()) or (col[-1].is_black() and w.is_red())):
                     return False
 
-        # 3) Czy dowolna kolumna->fundacja albo kolumna->kolumna?
         for i, from_col in enumerate(self.columns):
             if not from_col or not from_col[-1].face_up:
                 continue
             c = from_col[-1]
-            # fundacja
             fstack = self.foundation[c.suit]
             expected = VALUES[len(fstack)] if fstack else 'A'
             if c.value == expected:
                 return False
-            # inne kolumny
             for j, to_col in enumerate(self.columns):
                 if i == j:
                     continue
@@ -350,11 +351,11 @@ class Solitaire:
                     ((top.is_red() and c.is_black()) or (top.is_black() and c.is_red())):
                         return False
 
-        # Serio brak ruchów – wtedy faktycznie przegrana
         return True
 
 
 
+    # rysuje całą planszę w terminalu
     def display(self):
         clear()
         card_height = 5
@@ -392,25 +393,20 @@ class Solitaire:
         else:
             info_lines.append("Widoczna karta: ---")
 
-        # Scal widok kart i panel
         i = 1
         print(' '+(''.join(f'------{i}----' for i in range(1, 8))) + '-'*23)
         max_len = max(len(lines), len(info_lines))
         for i in range(max_len):
             left = lines[i] if i < len(lines) else ""
             right = info_lines[i] if i < len(info_lines) else ""
-
-            # Dodaj numer co 5 linijek (karta ma 5 linii)
             row_number = (i // 5) + 1 if i % 5 == 2 else " ᱾"
             row_label = f"{row_number:<2} " if row_number else "   "
 
             print(f"{row_label}{pad_visible(left, 80)} {right}")
 
-        # Reset koloru wartości (na wypadek podpowiedzi)
         for col in self.columns:
             for card in col:
                 if isinstance(card.value, str) and '\x1b[' in card.value:
-                    # Wyciągnij oryginalną wartość z ANSI
                     for val in VALUES:
                         if val in card.value:
                             card.value = val
@@ -419,11 +415,10 @@ class Solitaire:
 
         print('-' * 100)
         
-
+    # główna pętla gry i obsługa komend
     def run(self):
         while True:
             self.display()
-            # wyczyść wszystkie podświetlenia
             for col in self.columns:
                 for card in col:
                     card.highlighted = False
@@ -436,7 +431,7 @@ class Solitaire:
                 print("\nPRZEGRANA! Brak możliwych ruchów.")
                 zapisz_do_rankingu(f"PRZEGRANA po {self.move_counter} ruchach")
                 break
-            print("\nKomendy: d - dobierz | u - undo | m X Y - przenieś kolumnę | f X - do stosu końcowego | w Y - waste do kolumny | wf - waste do stosu końcowego | q - wyjdź")
+            print("\nKomendy: d - dobierz | u - undo | h - podpowiedż | m X Y - przenieś kolumnę | f X - do stosu końcowego | w Y - waste do kolumny | wf - waste do stosu końcowego | q - wyjdź")
             cmd = input("> ").strip().lower().split()
             if not cmd:
                 continue
@@ -459,7 +454,7 @@ class Solitaire:
                 self.highlight_hint()
     
 
-# === Uruchomienie gry ===
+# Uruchomienie gry
 if __name__ == '__main__':
     print("Wybierz poziom trudności: 1 - łatwy (1 karta), 3 - trudny (3 karty)")
     level = input("> ").strip()
