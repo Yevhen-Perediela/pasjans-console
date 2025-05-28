@@ -30,7 +30,7 @@
 ---
 
 ### Aby uruchomić wpisz:
-./start.sh - (Linux)
+./start.sh - (Linux) \n
 start.bat - (Windows)
 
 - Zalecam zmniejszyć zoom ekranu (Ctrl + -) dla wygody korzystania z gry
